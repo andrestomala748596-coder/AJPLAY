@@ -2,9 +2,9 @@ name = "ajplay-catalog-api"
 main = "src/index.js"
 compatibility_date = "2026-11-12"
 
-[[r2_buckets]]
+[[kv_namespaces]]
 binding = "CATALOGS"
-bucket_name = "ajplay-catalogs"
+id = "e1fd37bf5d7749709b64674e0a6355a7"
 
 [observability]
 enabled = true
