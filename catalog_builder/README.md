@@ -1,31 +1,26 @@
-# Per-client IPTV catalog builder
+# AJPLAY per-client IPTV catalog
 
-The workflow is manually dispatched with a Supabase client UUID. It expects the GitHub Actions secrets:
+## Current Supabase assignment verified
 
-- `AJPLAY_SERVERS_JSON`: JSON array of client configurations. Each entry contains `client_id` and `servers`; each server has `server_id`, `base_url`, `username`, and `password`.
-- `CATALOG_WRITE_TOKEN`: must match the Cloudflare Worker's `CATALOG_WRITE_TOKEN` secret.
+- Client: ANDY
+- Client UUID: `19790397-8b78-401e-8c68-f226372e4a9a`
+- Active assigned servers: 1
+- Server: SERVIDOR 1
+- Server UUID: `6c05c1b3-2f91-48b4-80e8-ca0b68d12d16`
 
-Repository variable:
-- `AJPLAY_WORKER_URL`: deployed Worker base URL.
+The workflow default is configured for this existing client. The builder reads only the server list supplied in GitHub Actions secret `AJPLAY_SERVERS_JSON`; do not add invented servers to complete a sample.
 
-Example structure (use real values only in GitHub Secrets, never commit this):
-```json
-[
-  {
-    "client_id": "client-uuid",
-    "servers": [
-      {
-        "server_id": "server-uuid-1",
-        "base_url": "https://provider.example",
-        "username": "private-user",
-        "password": "private-password"
-      }
-    ]
-  }
-]
-```
+## Required GitHub Actions configuration
 
-## Provider calls
+Repository secret `AJPLAY_SERVERS_JSON`: JSON array with the actual client and assigned server connection data. Keep endpoint credentials here only, never in source control.
+
+Repository secret `CATALOG_WRITE_TOKEN`: must match the Cloudflare Worker secret with the same name.
+
+Repository variable `AJPLAY_WORKER_URL`: deployed Worker URL.
+
+The current workflow has been committed, but these Actions secrets/variables have not been configured through the available GitHub connection.
+
+## Provider API calls
 
 Only:
 - `get_vod_categories`
@@ -36,19 +31,19 @@ Never:
 - `get_info`
 - per-title detail lookups
 
-The original category and stream records are preserved in JSON, including provider stream IDs, category IDs, titles, years, and `container_extension` exactly as supplied. Repeated entries are not deduplicated.
+Original category and stream objects are retained as returned, including duplicates, titles, years, provider IDs, and `container_extension`. No title/year normalization or deduplication is performed.
 
 ## Storage layout
 
-Each catalog is isolated by both identifiers in Workers KV:
+Each server catalog is stored independently in Cloudflare Workers KV under:
 `client:{client_id}:server:{server_id}:catalog:v1`
 
-Thus a client with three assigned IPTV servers receives three independent catalog values. No global shared catalog is generated.
+A client with three assigned servers will get three separate values. The current ANDY assignment has one server, so it will publish one catalog.
 
-## Temporary files
+## Temporary files and publication
 
-Files are created only inside Python's temporary directory. It is automatically removed when the workflow exits, including after successful uploads. A failed extraction does not publish partial data for a server; each server's JSON is uploaded only after both provider listing calls succeed.
+Downloads are written to a Python temporary directory. Both category and stream listing calls must succeed for a server before its JSON is uploaded. The temporary directory is removed automatically when the process exits.
 
-## Security
+## Security and app integration
 
-Do not commit credentials. Store provider connection details only in Actions secrets. The Worker write token must be set as a Worker secret and the same value as a GitHub Actions secret. Client read authentication still needs to be integrated with AJPLAY's existing authenticated session before production use.
+Provider credentials are not included in catalog JSON. Worker read and write access is token protected. Before production app use, integrate read authorization with AJPLAY's existing authenticated client/device session rather than shipping a shared read token in the APK.
