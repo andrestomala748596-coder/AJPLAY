@@ -1,0 +1,3 @@
+# Copy to .dev.vars locally and replace with long random values.
+CATALOG_READ_TOKEN=replace-with-a-long-random-read-token
+CATALOG_WRITE_TOKEN=replace-with-a-different-long-random-write-token
