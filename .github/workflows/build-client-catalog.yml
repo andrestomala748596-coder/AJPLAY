@@ -1,0 +1,40 @@
+name: AJPLAY Build Client Catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: "Internal client ID (not display name)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ajplay-catalog-${{ github.event.inputs.client_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout AJPLAY
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependency
+        run: python -m pip install requests
+
+      - name: Download provider categories and VOD streams, then upload per server
+        env:
+          CLIENT_ID: ${{ inputs.client_id }}
+          AJPLAY_SERVERS_JSON: ${{ secrets.AJPLAY_SERVERS_JSON }}
+          WORKER_URL: ${{ vars.AJPLAY_WORKER_URL }}
+          CATALOG_WRITE_TOKEN: ${{ secrets.CATALOG_WRITE_TOKEN }}
+        run: python catalog_builder/build_catalog.py
