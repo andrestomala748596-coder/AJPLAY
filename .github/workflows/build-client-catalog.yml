@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       client_id:
-        description: "Internal client ID (not display name)"
+        description: "Supabase client UUID"
         required: true
+        default: "19790397-8b78-401e-8c68-f226372e4a9a"
         type: string
 
 permissions:
@@ -31,7 +32,7 @@ jobs:
       - name: Install dependency
         run: python -m pip install requests
 
-      - name: Download provider categories and VOD streams, then upload per server
+      - name: Download categories and VOD streams, then upload each assigned server
         env:
           CLIENT_ID: ${{ inputs.client_id }}
           AJPLAY_SERVERS_JSON: ${{ secrets.AJPLAY_SERVERS_JSON }}
