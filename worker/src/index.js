@@ -1,74 +1,44 @@
-const headers = {
+const cors = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, PUT, OPTIONS",
-  "access-control-allow-headers": "content-type, authorization, x-ajplay-admin"
+  "access-control-allow-headers": "content-type, authorization"
 };
-
-function reply(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers });
-}
-
-function safeSegment(value) {
-  return /^[a-zA-Z0-9_-]{1,100}$/.test(value);
-}
+const json = (body, status = 200) => new Response(JSON.stringify(body), {status, headers:cors});
+const segment = /^[a-zA-Z0-9_-]{1,100}$/;
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
-
+    if (request.method === "OPTIONS") return new Response(null,{status:204,headers:cors});
     if (url.pathname === "/health" && request.method === "GET") {
-      return reply({
-        ok: true,
-        service: "AJPLAY Catalog API",
-        storageConfigured: Boolean(env.CATALOGS),
-        authConfigured: Boolean(env.CATALOG_READ_TOKEN && env.CATALOG_WRITE_TOKEN)
-      });
+      return json({ok:true,service:"AJPLAY Catalog API",storageConfigured:!!env.CATALOGS,authConfigured:!!env.CATALOG_READ_TOKEN && !!env.CATALOG_WRITE_TOKEN});
     }
 
-    const match = url.pathname.match(/^\/v1\/catalog\/([a-zA-Z0-9_-]{1,100})$/);
-    if (!match) return reply({ ok: false, error: "Not found" }, 404);
-    const userId = match[1];
-    const key = `users/${userId}/catalog.json`;
-
-    if (!env.CATALOGS) return reply({ ok: false, error: "R2 binding CATALOGS is not configured" }, 503);
-
-    if (request.method === "GET") {
-      if (!env.CATALOG_READ_TOKEN || request.headers.get("authorization") !== `Bearer ${env.CATALOG_READ_TOKEN}`) {
-        return reply({ ok: false, error: "Unauthorized" }, 401);
-      }
-      const object = await env.CATALOGS.get(key);
-      if (!object) return reply({ ok: false, error: "Catalog not found" }, 404);
-      return new Response(object.body, {
-        headers: {
-          ...headers,
-          "content-type": "application/json; charset=utf-8",
-          "etag": object.httpEtag,
-          "x-catalog-updated": object.uploaded?.toISOString?.() || ""
-        }
-      });
-    }
+    const match = url.pathname.match(/^\/v1\/catalog\/([^/]+)\/([^/]+)$/);
+    if (!match || !segment.test(match[1]) || !segment.test(match[2])) return json({ok:false,error:"Not found"},404);
+    if (!env.CATALOGS) return json({ok:false,error:"KV binding CATALOGS missing"},503);
+    const [, clientId, serverId] = match;
+    const key = `client:${clientId}:server:${serverId}:catalog:v1`;
 
     if (request.method === "PUT") {
-      if (!env.CATALOG_WRITE_TOKEN || request.headers.get("authorization") !== `Bearer ${env.CATALOG_WRITE_TOKEN}`) {
-        return reply({ ok: false, error: "Unauthorized" }, 401);
-      }
-      const declaredLength = Number(request.headers.get("content-length") || 0);
-      if (declaredLength > 25 * 1024 * 1024) return reply({ ok: false, error: "Catalog exceeds 25 MB test limit" }, 413);
+      if (!env.CATALOG_WRITE_TOKEN || request.headers.get("authorization") !== `Bearer ${env.CATALOG_WRITE_TOKEN}`) return json({ok:false,error:"Unauthorized"},401);
       const raw = await request.text();
-      if (!raw || raw.length > 25 * 1024 * 1024) return reply({ ok: false, error: "Catalog body is empty or too large" }, 413);
-      let parsed;
-      try { parsed = JSON.parse(raw); } catch { return reply({ ok: false, error: "Invalid JSON" }, 400); }
-      if (!Array.isArray(parsed)) return reply({ ok: false, error: "Catalog root must be a JSON array" }, 400);
-      await env.CATALOGS.put(key, raw, {
-        httpMetadata: { contentType: "application/json; charset=utf-8" },
-        customMetadata: { userId, records: String(parsed.length), format: "ajplay-catalog-v1" }
-      });
-      return reply({ ok: true, userId, records: parsed.length });
+      if (!raw || raw.length > 24 * 1024 * 1024) return json({ok:false,error:"JSON empty or exceeds 24 MiB"},413);
+      let catalog;
+      try { catalog = JSON.parse(raw); } catch { return json({ok:false,error:"Invalid JSON"},400); }
+      if (!Array.isArray(catalog)) return json({ok:false,error:"Catalog root must be an array"},400);
+      await env.CATALOGS.put(key, raw, {metadata:{clientId,serverId,records:catalog.length,format:"ajplay-v1",publishedAt:new Date().toISOString()}});
+      return json({ok:true,clientId,serverId,records:catalog.length});
     }
 
-    return reply({ ok: false, error: "Method not allowed" }, 405);
+    if (request.method === "GET") {
+      if (!env.CATALOG_READ_TOKEN || request.headers.get("authorization") !== `Bearer ${env.CATALOG_READ_TOKEN}`) return json({ok:false,error:"Unauthorized"},401);
+      const value = await env.CATALOGS.get(key);
+      if (value === null) return json({ok:false,error:"Catalog not found"},404);
+      return new Response(value,{status:200,headers:{...cors,"content-type":"application/json; charset=utf-8"}});
+    }
+    return json({ok:false,error:"Method not allowed"},405);
   }
 };
