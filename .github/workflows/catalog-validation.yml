@@ -1,0 +1,34 @@
+name: AJPLAY Catalog Validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "catalogs/**/*.json"
+      - "worker/src/**"
+      - "worker/wrangler.toml"
+      - ".github/workflows/catalog-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate catalog JSON without rewriting provider records
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          files = sorted(Path("catalogs").rglob("*.json")) if Path("catalogs").exists() else []
+          for path in files:
+              with path.open("r", encoding="utf-8") as f:
+                  value = json.load(f)
+              if not isinstance(value, list):
+                  raise SystemExit(f"{path}: root must be a JSON array")
+              print(f"{path}: {len(value)} records OK")
+          print(f"Validated {len(files)} catalog file(s)")
