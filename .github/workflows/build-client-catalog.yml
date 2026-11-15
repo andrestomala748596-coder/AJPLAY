@@ -38,8 +38,7 @@ jobs:
       - name: Extract assigned servers and publish catalogs
         env:
           CLIENT_ID: ${{ inputs.client_id || github.event.client_payload.client_id }}
-          CATALOG_SOURCE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CATALOG_SOURCE_URL: https://buwgevosssyncqztzznp.supabase.co
           AJPLAY_CATALOG_SOURCE_TOKEN: ${{ secrets.AJPLAY_CATALOG_SOURCE_TOKEN }}
           WORKER_URL: ${{ vars.AJPLAY_WORKER_URL }}
           CATALOG_WRITE_TOKEN: ${{ secrets.CATALOG_WRITE_TOKEN }}
