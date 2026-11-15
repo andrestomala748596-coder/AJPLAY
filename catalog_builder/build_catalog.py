@@ -17,7 +17,6 @@ def source_servers(client_id):
         params={"client_id": client_id},
         headers={
             "Authorization": f"Bearer {source_token}",
-            "apikey": os.environ["SUPABASE_ANON_KEY"],
             "Accept": "application/json",
         },
         timeout=TIMEOUT,
