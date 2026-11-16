@@ -1,39 +1,37 @@
-name: AJPLAY - publicar VOD en Cloudflare
+name: AJPLAY - publicar VOD por cliente en Cloudflare
 
 on:
   push:
     branches: [main]
     paths:
-      - "VOD.txt"
+      - "usuarios/**/VOD.txt"
       - ".github/workflows/publicar-vod.yml"
       - "scripts/publicar_vod_cloudflare.mjs"
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: ajplay-vod-cloudflare
   cancel-in-progress: false
-
 jobs:
   publicar:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Descargar repositorio
-        uses: actions/checkout@v4
-
-      - name: Validar VOD.txt
+      - uses: actions/checkout@v4
+      - name: Validar VOD por cliente
         shell: bash
         run: |
           set -euo pipefail
-          test -s VOD.txt
-          grep -q '^#EXTM3U' VOD.txt
-          grep -q '^#EXTINF' VOD.txt
-          echo "VOD.txt válido: $(grep -c '^#EXTINF' VOD.txt) entradas"
-
-      - name: Publicar VOD en Cloudflare Pages
+          mapfile -t files < <(find usuarios -mindepth 2 -maxdepth 2 -type f -name VOD.txt | sort)
+          (("${#files[@]}" > 0)) || { echo "No hay VOD.txt por cliente"; exit 1; }
+          for file in "${files[@]}"; do
+            test -s "$file"
+            grep -q '^#EXTM3U' "$file"
+            grep -q '^#EXTINF' "$file"
+            echo "$file: $(grep -c '^#EXTINF' "$file") entradas"
+          done
+      - name: Publicar todos los VOD de clientes
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: "4ffa1907cb28ed2b703bba2976c69c6b"
