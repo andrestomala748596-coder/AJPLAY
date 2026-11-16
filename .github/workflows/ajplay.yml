@@ -1,0 +1,41 @@
+name: AJPLAY - validar TXT por usuario
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "usuarios/**"
+      - ".github/workflows/ajplay.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ajplay-usuarios
+  cancel-in-progress: false
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar separación por usuario
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p usuarios
+          while IFS= read -r file; do
+            [[ "$file" == "usuarios/.gitkeep" ]] && continue
+            [[ "$file" == usuarios/*/* ]] || {
+              echo "Archivo fuera de la carpeta de un usuario: $file"
+              exit 1
+            }
+            [[ "$file" == *.txt ]] || {
+              echo "Solo se permiten archivos TXT: $file"
+              exit 1
+            }
+          done < <(git ls-files usuarios)
+          echo "Estructura de usuarios validada."
