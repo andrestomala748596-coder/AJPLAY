@@ -1,0 +1,41 @@
+name: AJPLAY - publicar VOD en Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "VOD.txt"
+      - ".github/workflows/publicar-vod.yml"
+      - "scripts/publicar_vod_cloudflare.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ajplay-vod-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar VOD.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s VOD.txt
+          grep -q '^#EXTM3U' VOD.txt
+          grep -q '^#EXTINF' VOD.txt
+          echo "VOD.txt válido: $(grep -c '^#EXTINF' VOD.txt) entradas"
+
+      - name: Publicar VOD en Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "4ffa1907cb28ed2b703bba2976c69c6b"
+          CLOUDFLARE_PAGES_PROJECT: "ajplay-clientes"
+        run: node scripts/publicar_vod_cloudflare.mjs
